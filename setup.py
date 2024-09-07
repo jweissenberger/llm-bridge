@@ -5,7 +5,9 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
-        # Add any dependencies here
+        "instructor==1.4.0",
+        "openai==1.42.0",
+        "anthropic==0.34.1",
     ],
     author="Your Name",
     author_email="your.email@example.com",
