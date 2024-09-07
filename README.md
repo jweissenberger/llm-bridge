@@ -4,16 +4,10 @@ LLM Bridge is a Python package that provides a Client class for interacting with
 
 ## Installation
 
-You can install LLM Bridge using pip:
+Directly from GitHub:
 
 ```
-pip install llm-bridge
-```
-
-Or directly from GitHub:
-
-```
-pip install git+https://github.com/yourusername/llm-bridge.git
+pip install git+https://github.com/jweissenberger/llm-bridge.git
 ```
 
 ## Usage
@@ -27,6 +21,95 @@ client = Client()
 # Use the client...
 ```
 
-## License
+## Features
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Model Fallbacks
+- Load Balancing
+
+- [ ] Chat template support for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
+
+- [ ] Streaming support for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
+
+- [ ] Structured outputs for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
+
+- [ ] Response Prefilling for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
+
+- [ ] Prompt Caching for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
+
+- [ ] Function calling support for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
+
+- [ ] Image support for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
+
+- [ ] File Uploads for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
