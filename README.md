@@ -23,8 +23,8 @@ client = Client()
 
 ## Features
 
-- Model Fallbacks
-- Load Balancing
+- [ ] Model Fallbacks
+- [ ] Load Balancing
 
 - [ ] Chat template support for:
     - [ ] OpenAI
@@ -38,6 +38,17 @@ client = Client()
     - [ ] HuggingFace TGI/ vLLM
 
 - [ ] Streaming support for:
+    - [ ] OpenAI
+    - [ ] Anthropic
+    - [ ] Gemini
+    - [ ] Groq
+    - [ ] Mistral
+    - [ ] Cerebrus
+    - [ ] Together
+    - [ ] Perplexity
+    - [ ] HuggingFace TGI/ vLLM
+
+- [ ] Async support for:
     - [ ] OpenAI
     - [ ] Anthropic
     - [ ] Gemini

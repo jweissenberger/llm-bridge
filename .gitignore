@@ -3,3 +3,5 @@ venv*
 .env
 .aider*
 *.vscode
+*.egg-info
+*__pycache__*
