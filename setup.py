@@ -8,6 +8,7 @@ setup(
         "instructor==1.4.0",
         "openai==1.42.0",
         "anthropic==0.34.1",
+        "pydantic==2.8.2",
     ],
     author="Your Name",
     author_email="your.email@example.com",
