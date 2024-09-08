@@ -1,12 +1,15 @@
 """Classes wrapping LLM APIs"""
 
 from abc import ABC, abstractmethod
+import json
 import time
 from typing import List, Dict, Generator, AsyncGenerator, Optional
 from pydantic import BaseModel
 import os
-import openai
 import tiktoken
+import instructor
+from openai import OpenAI
+from openai.types.chat.chat_completion import ChatCompletion
 
 from models import OPENAI_MODELS, ANTHROPIC_MODELS
 
@@ -22,31 +25,37 @@ class LLMResponse(BaseModel):
     subsequent_tokens_per_second: Optional[float] = None
 
 
+class StructuredLLMResponse(LLMResponse):
+    structured_output: BaseModel
+
+
 class LLMAPI(ABC):
     @abstractmethod
-    def chat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+    def chat(self, model_name: str, messages: List[Dict[str, str]]) -> LLMResponse:
         pass
 
     @abstractmethod
     def stream_chat(
-        self, messages: List[Dict[str, str]]
+        self, model_name: str, messages: List[Dict[str, str]]
     ) -> Generator[str, None, LLMResponse]:
         pass
 
     @abstractmethod
-    async def achat(self, messages: List[Dict[str, str]]) -> LLMResponse:
+    async def achat(
+        self, model_name: str, messages: List[Dict[str, str]]
+    ) -> LLMResponse:
         pass
 
     @abstractmethod
     async def astream_chat(
-        self, messages: List[Dict[str, str]]
+        self, model_name: str, messages: List[Dict[str, str]]
     ) -> AsyncGenerator[str, LLMResponse]:
         pass
 
     @abstractmethod
     def structured_output(
         self, messages: List[Dict[str, str]], format: BaseModel
-    ) -> BaseModel:
+    ) -> StructuredLLMResponse:
         pass
 
 
@@ -55,7 +64,8 @@ class OpenAIAPI(LLMAPI):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY is not set")
-        self.client = openai.OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=self.api_key)
+        self.instructor_client = instructor.from_openai(client=self.client)
 
         self.tokenizer_4o = tiktoken.encoding_for_model("gpt-4o")
 
@@ -139,3 +149,46 @@ class OpenAIAPI(LLMAPI):
             ms_per_token=ms_per_token,
             subsequent_tokens_per_second=subsequent_tokens_per_second,
         )
+
+    def structured_output(
+        self, model_name: str, messages: List[Dict[str, str]], format: BaseModel
+    ) -> StructuredLLMResponse:
+        start_time = time.time()
+        if model_name not in OPENAI_MODELS:
+            raise ValueError(f"Model {model_name} not found in OpenAI models")
+        model = OPENAI_MODELS[model_name]
+
+        response, completion = (
+            self.instructor_client.chat.completions.create_with_completion(
+                model=model.name,
+                max_tokens=1024,
+                messages=messages,
+                response_model=format,
+            )
+        )
+        end_time = time.time()
+        total_time_ms = (end_time - start_time) * 1000
+
+        assert isinstance(completion, ChatCompletion)
+        assert isinstance(response, format)
+        assert isinstance(response, BaseModel)
+
+        return StructuredLLMResponse(
+            content=json.dumps(response.model_dump_json()),
+            structured_output=response,
+            num_input_tokens=completion.usage.prompt_tokens,
+            num_output_tokens=completion.usage.completion_tokens,
+            cost=model.input_token_cost * completion.usage.prompt_tokens
+            + model.output_token_cost * completion.usage.completion_tokens,
+            total_latency_ms=total_time_ms,
+        )
+
+    async def achat(
+        self, model_name: str, messages: List[Dict[str, str]]
+    ) -> LLMResponse:
+        raise NotImplementedError("Not implemented")
+
+    async def astream_chat(
+        self, model_name: str, messages: List[Dict[str, str]]
+    ) -> AsyncGenerator[str, LLMResponse]:
+        raise NotImplementedError("Not implemented")
