@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel
 
+
 class Model(BaseModel):
     name: str
     provider: str
@@ -14,6 +15,7 @@ class Model(BaseModel):
 # OpenAI models
 class OpenAIModel(Model):
     provider: str = "openai"
+
 
 OPENAI_MODELS = {
     "gpt-4o-2024-08-06": OpenAIModel(
@@ -29,8 +31,21 @@ OPENAI_MODELS = {
         output_token_cost=6e-07,
         context_window=128_000,
         max_output_tokens=16_384,
-    )
+    ),
 }
 
-# Anthropic models
 
+# Anthropic models
+class AnthropicModel(Model):
+    provider: str = "anthropic"
+
+
+ANTHROPIC_MODELS = {
+    "claude-3-5-sonnet-20240620": AnthropicModel(
+        name="claude-3-5-sonnet-20240620",
+        input_token_cost=3e-06,
+        output_token_cost=1.5e-05,
+        context_window=200_000,
+        max_output_tokens=8_192,
+    )
+}

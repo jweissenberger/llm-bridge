@@ -25,6 +25,7 @@ client = Client()
 
 - [ ] Model Fallbacks
 - [ ] Load Balancing
+- [ ] PostHog Logging
 
 - [ ] Chat template support for:
     - [ ] OpenAI
