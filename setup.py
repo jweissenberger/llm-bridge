@@ -9,6 +9,7 @@ setup(
         "openai==1.42.0",
         "anthropic==0.34.1",
         "pydantic==2.8.2",
+        "tiktoken==0.7.0",
     ],
     author="Your Name",
     author_email="your.email@example.com",
