@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 import json
 import time
-from typing import List, Dict, Generator, AsyncGenerator, Optional
+from typing import List, Dict, Generator, AsyncGenerator, Optional, Tuple
 from pydantic import BaseModel
 import os
 import tiktoken
@@ -11,6 +11,7 @@ import instructor
 from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
 import anthropic
+from anthropic.types.message import Message
 
 from models import OPENAI_MODELS, ANTHROPIC_MODELS
 
@@ -194,6 +195,7 @@ class OpenAIAPI(LLMAPI):
     ) -> AsyncGenerator[str, LLMResponse]:
         raise NotImplementedError("Not implemented")
 
+
 class AnthropicAPI(LLMAPI):
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
@@ -201,26 +203,48 @@ class AnthropicAPI(LLMAPI):
             raise ValueError("ANTHROPIC_API_KEY is not set")
         self.client = anthropic.Anthropic(api_key=self.api_key)
 
+    def _pull_out_system_message(
+        self, messages: List[Dict[str, str]]
+    ) -> Tuple[Optional[str], List[Dict[str, str]]]:
+        """
+        Pull out the system message from the list of messages.
+        """
+        system_message = None
+        for message in messages:
+            if message["role"] == "system":
+                system_message = message["content"]
+                break
+        return system_message, [
+            message for message in messages if message["role"] != "system"
+        ]
+
     def chat(self, model_name: str, messages: List[Dict[str, str]]) -> LLMResponse:
         start_time = time.time()
         if model_name not in ANTHROPIC_MODELS:
             raise ValueError(f"Model {model_name} not found in Anthropic models")
         model = ANTHROPIC_MODELS[model_name]
 
-        prompt = self._convert_messages_to_prompt(messages)
-        response = self.client.completions.create(
-            model=model.name,
-            prompt=prompt,
-            max_tokens_to_sample=1000,
-        )
+        system_message, messages = self._pull_out_system_message(messages)
+
+        # only add system message if it exists
+        kwargs = {
+            "model": model.name,
+            "messages": messages,
+            **({"system": system_message} if system_message else {}),
+        }
+
+        response = self.client.messages.create(**kwargs)
+
+        assert isinstance(response, Message)
+
         end_time = time.time()
 
         return LLMResponse(
-            content=response.completion,
-            num_input_tokens=response.usage.prompt_tokens,
-            num_output_tokens=response.usage.completion_tokens,
-            cost=model.input_token_cost * response.usage.prompt_tokens
-            + model.output_token_cost * response.usage.completion_tokens,
+            content=response.content,
+            num_input_tokens=response.usage.input_tokens,
+            num_output_tokens=response.usage.output_tokens,
+            cost=model.input_token_cost * response.usage.input_tokens
+            + model.output_token_cost * response.usage.output_tokens,
             total_latency_ms=(end_time - start_time) * 1000,
         )
 
