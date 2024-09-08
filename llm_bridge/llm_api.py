@@ -10,6 +10,7 @@ import tiktoken
 import instructor
 from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
+import anthropic
 
 from models import OPENAI_MODELS, ANTHROPIC_MODELS
 
@@ -192,3 +193,110 @@ class OpenAIAPI(LLMAPI):
         self, model_name: str, messages: List[Dict[str, str]]
     ) -> AsyncGenerator[str, LLMResponse]:
         raise NotImplementedError("Not implemented")
+
+class AnthropicAPI(LLMAPI):
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            raise ValueError("ANTHROPIC_API_KEY is not set")
+        self.client = anthropic.Anthropic(api_key=self.api_key)
+
+    def chat(self, model_name: str, messages: List[Dict[str, str]]) -> LLMResponse:
+        start_time = time.time()
+        if model_name not in ANTHROPIC_MODELS:
+            raise ValueError(f"Model {model_name} not found in Anthropic models")
+        model = ANTHROPIC_MODELS[model_name]
+
+        prompt = self._convert_messages_to_prompt(messages)
+        response = self.client.completions.create(
+            model=model.name,
+            prompt=prompt,
+            max_tokens_to_sample=1000,
+        )
+        end_time = time.time()
+
+        return LLMResponse(
+            content=response.completion,
+            num_input_tokens=response.usage.prompt_tokens,
+            num_output_tokens=response.usage.completion_tokens,
+            cost=model.input_token_cost * response.usage.prompt_tokens
+            + model.output_token_cost * response.usage.completion_tokens,
+            total_latency_ms=(end_time - start_time) * 1000,
+        )
+
+    def stream_chat(
+        self, model_name: str, messages: List[Dict[str, str]]
+    ) -> Generator[str, None, LLMResponse]:
+        start_time = time.time()
+        if model_name not in ANTHROPIC_MODELS:
+            raise ValueError(f"Model {model_name} not found in Anthropic models")
+        model = ANTHROPIC_MODELS[model_name]
+
+        prompt = self._convert_messages_to_prompt(messages)
+        stream = self.client.completions.create(
+            model=model.name,
+            prompt=prompt,
+            max_tokens_to_sample=1000,
+            stream=True,
+        )
+
+        content = ""
+        ttft_ms = None
+        num_input_tokens = 0
+        num_output_tokens = 0
+
+        for chunk in stream:
+            if chunk.completion:
+                yield chunk.completion
+                if content == "":
+                    ttft_ms = (time.time() - start_time) * 1000
+                content += chunk.completion
+                num_output_tokens += 1
+
+        end_time = time.time()
+        total_time_ms = (end_time - start_time) * 1000
+        ms_per_token = (
+            (total_time_ms - ttft_ms) / num_output_tokens
+            if num_output_tokens > 0
+            else None
+        )
+        subsequent_tokens_per_second = 1000 / ms_per_token if ms_per_token else None
+
+        return LLMResponse(
+            content=content,
+            num_input_tokens=num_input_tokens,
+            num_output_tokens=num_output_tokens,
+            cost=model.input_token_cost * num_input_tokens
+            + model.output_token_cost * num_output_tokens,
+            total_latency_ms=total_time_ms,
+            ttft_ms=ttft_ms,
+            ms_per_token=ms_per_token,
+            subsequent_tokens_per_second=subsequent_tokens_per_second,
+        )
+
+    def structured_output(
+        self, model_name: str, messages: List[Dict[str, str]], format: BaseModel
+    ) -> StructuredLLMResponse:
+        raise NotImplementedError("Structured output not implemented for Anthropic API")
+
+    async def achat(
+        self, model_name: str, messages: List[Dict[str, str]]
+    ) -> LLMResponse:
+        raise NotImplementedError("Async chat not implemented for Anthropic API")
+
+    async def astream_chat(
+        self, model_name: str, messages: List[Dict[str, str]]
+    ) -> AsyncGenerator[str, LLMResponse]:
+        raise NotImplementedError("Async stream chat not implemented for Anthropic API")
+
+    def _convert_messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
+        prompt = ""
+        for message in messages:
+            if message["role"] == "system":
+                prompt += f"Human: {message['content']}\n\nAssistant: Understood. How can I help you?\n\n"
+            elif message["role"] == "user":
+                prompt += f"Human: {message['content']}\n\n"
+            elif message["role"] == "assistant":
+                prompt += f"Assistant: {message['content']}\n\n"
+        prompt += "Assistant:"
+        return prompt
