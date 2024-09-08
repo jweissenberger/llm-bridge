@@ -256,26 +256,34 @@ class AnthropicAPI(LLMAPI):
             raise ValueError(f"Model {model_name} not found in Anthropic models")
         model = ANTHROPIC_MODELS[model_name]
 
-        prompt = self._convert_messages_to_prompt(messages)
-        stream = self.client.completions.create(
-            model=model.name,
-            prompt=prompt,
-            max_tokens_to_sample=1000,
-            stream=True,
-        )
+        system_message, messages = self._pull_out_system_message(messages)
+
+        kwargs = {
+            "model": model.name,
+            "messages": messages,
+            "stream": True,
+            **({"system": system_message} if system_message else {}),
+        }
+
+        stream = self.client.messages.create(**kwargs)
 
         content = ""
         ttft_ms = None
         num_input_tokens = 0
         num_output_tokens = 0
 
-        for chunk in stream:
-            if chunk.completion:
-                yield chunk.completion
-                if content == "":
-                    ttft_ms = (time.time() - start_time) * 1000
-                content += chunk.completion
-                num_output_tokens += 1
+        for event in stream:
+            if isinstance(event, anthropic.types.MessageStartEvent):
+                num_input_tokens = event.message.usage.input_tokens
+            elif isinstance(event, anthropic.types.ContentBlockDeltaEvent):
+                if event.delta.type == "text_delta":
+                    yield event.delta.text
+                    if content == "":
+                        ttft_ms = (time.time() - start_time) * 1000
+                    content += event.delta.text
+            elif isinstance(event, anthropic.types.MessageDeltaEvent):
+                if event.usage:
+                    num_output_tokens = event.usage.output_tokens
 
         end_time = time.time()
         total_time_ms = (end_time - start_time) * 1000
