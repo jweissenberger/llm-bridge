@@ -67,7 +67,9 @@ class OpenAIAPI(LLMAPI):
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY is not set")
         self.client = OpenAI(api_key=self.api_key)
-        self.instructor_client = instructor.from_openai(client=self.client)
+        self.instructor_client = instructor.from_openai(
+            client=self.client, mode=instructor.Mode.TOOLS_STRICT
+        )
 
         self.tokenizer_4o = tiktoken.encoding_for_model("gpt-4o")
 
@@ -203,6 +205,8 @@ class AnthropicAPI(LLMAPI):
             raise ValueError("ANTHROPIC_API_KEY is not set")
         self.client = anthropic.Anthropic(api_key=self.api_key)
 
+        self.instructor_client = instructor.from_anthropic(client=self.client)
+
     def _pull_out_system_message(
         self, messages: List[Dict[str, str]]
     ) -> Tuple[Optional[str], List[Dict[str, str]]]:
@@ -309,7 +313,40 @@ class AnthropicAPI(LLMAPI):
     def structured_output(
         self, model_name: str, messages: List[Dict[str, str]], format: BaseModel
     ) -> StructuredLLMResponse:
-        raise NotImplementedError("Structured output not implemented for Anthropic API")
+        start_time = time.time()
+        if model_name not in ANTHROPIC_MODELS:
+            raise ValueError(f"Model {model_name} not found in Anthropic models")
+        model = ANTHROPIC_MODELS[model_name]
+
+        system_message, messages = self._pull_out_system_message(messages)
+
+        kwargs = {
+            "model": model.name,
+            "messages": messages,
+            "response_model": format,
+            **({"system": system_message} if system_message else {}),
+        }
+
+        response, completion = self.instructor_client.messages.create_with_completion(
+            **kwargs
+        )
+
+        end_time = time.time()
+        total_time_ms = (end_time - start_time) * 1000
+
+        assert isinstance(response, format)
+        assert isinstance(response, BaseModel)
+        assert isinstance(completion, Message)
+
+        return StructuredLLMResponse(
+            content=json.dumps(response.model_dump_json()),
+            structured_output=response,
+            num_input_tokens=completion.usage.input_tokens,
+            num_output_tokens=completion.usage.output_tokens,
+            cost=model.input_token_cost * completion.usage.input_tokens
+            + model.output_token_cost * completion.usage.output_tokens,
+            total_latency_ms=total_time_ms,
+        )
 
     async def achat(
         self, model_name: str, messages: List[Dict[str, str]]
@@ -320,15 +357,3 @@ class AnthropicAPI(LLMAPI):
         self, model_name: str, messages: List[Dict[str, str]]
     ) -> AsyncGenerator[str, LLMResponse]:
         raise NotImplementedError("Async stream chat not implemented for Anthropic API")
-
-    def _convert_messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
-        prompt = ""
-        for message in messages:
-            if message["role"] == "system":
-                prompt += f"Human: {message['content']}\n\nAssistant: Understood. How can I help you?\n\n"
-            elif message["role"] == "user":
-                prompt += f"Human: {message['content']}\n\n"
-            elif message["role"] == "assistant":
-                prompt += f"Assistant: {message['content']}\n\n"
-        prompt += "Assistant:"
-        return prompt
